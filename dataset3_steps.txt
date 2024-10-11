@@ -1,0 +1,84 @@
+- Observe frequently occuring subsequences in the input data 
+- we find that 284, 614, 422, 464, 15436, 1596, 262 occur frequently
+- simply remove these subsequences from all entries in the data, model gives ~90% accuracy
+- whats going wrong, are they not one to one maps to emoji dataset??
+- they are but see there can be other mappings like '2624' to an emoji, '262' from here is also being removed when we mindlessly remove the subsequences
+- this is a big problem, how to do better?
+- we hypothesize a one to one mapping and so we 'guess' the following
+   a) 262,614,1596 occurs exactly twice each input, 15436, 464, 422, 284 occur exactly once each input
+   b) another 'guess' is that all mapping from emoji to texts is atleast of length 3 and atmost of length 5
+   c) leading zeros are useless
+- we remove all leading zeros in the input 
+- we consider all partitions of each string in the input into 13 parts such that each part is of the length 3 or 4 or 5 AND hypothesis a) is satisfied
+- we make a new dataset with these 13 parts, we dont consider the parts in hypothesis a) and only consider the remainng 3 parts
+- we use a tokenizer for the 3 remaining parts and train the neural network 
+- we get ~91% accuracy :((
+- tried xgboost with neural network features still only ~92% accuracy 
+- what went wrong?? 
+- It's tough to notice what went wrong here (think more)
+
+
+- So, the problem is what if two non-hypothesis a) sequences are next to each other, in that case it could be a sequence of length 8 or 9 and we are partitioning it arbitrarily 
+- This is big problem number 2, so do you mean we can never partition correctly to get a one to one mapping?? (maybe not)
+- Well here is what works better, the 3 remaining parts, if any of them is isolated, i.e. not adjacent to a remaining part, that is a correct mapping 
+- so, we just remove such parts from input and consider whats left
+- for some inputs we could have 2 parts remaining (adjacent to each other) while for rare some inputs we could have 3 parts remaining (all 3 are adjacent), notice we can't have 1 part remaining, we will have 0 parts remaining though for most of the inputs
+- we join these parts for all inputs, call this new_string
+- For the part that we didn't join, we keep a map (or dictionary for python)
+- we also keep note of the number of parts that were joined to make this 'new_string' for each input
+- now we see hypothesis b) again and consider all the partitions of this 'new_string' (note: we know how many partitions we need it can be either 2 or 3)
+- We go back to our map from before and add the parts encountered in it.
+
+- EXAMPLE TIME: 
+ consider the parts are '123', '4567', '890', assume '4567', '890' are adjacent and '123' is isolated, so we add '123' to the map
+ new_string = '4567890'
+ consider one possible partition of new_string - '456', '7890' add these two to the map
+ consider another possible partition of new_string - '4567', '890' and add these two to the map as well
+ 
+ do it for all possible partitions of new_string (in this particular example only these two cases are possible)
+ 
+- Now how does this help us?
+- After iterating once over the input data 'new_string' we iterate again, this time however out of all the possible partitions we choose that partition which maximizes the sum of occurences of parts, so like in the previous example if '456' has occured 3 times after first iteration, '7890' 4 times, '4567' 1 time, '890' 2 times, we will choose the partition '456', '7890' as 7 > 3
+- So we have our brand new parts for each input, now we simply use tokenizer for these parts and then use neural networks 
+- Remark : In the model that got ~91% accuracy tokenizer had word_index of around 1300 while this brand new parts reduced that to 250 :))
+- This is how we achieve 96%+ accuracy 
+
+Something to ponder - 
+- Can we do better than 96%? there must be a way since the emoji dataset always gets around 98%, maybe we could do better than just maximizing the sum of occurences of parts
+- No, we can not do better than that (atleast thats what I think) because of one fundamental problem in 'our' way 
+- Consider this example from the input data
+-00001596779426261442215436464262447902846142621596
+-😑😫🙯😣🚼😛🛐😕😿🙼😣🙯😑
+- Notice what I want to show you?
+
+
+
+
+
+- Still didn't notice???
+
+
+
+
+
+- Think harder it's cool if you notice it by yourself.....
+
+
+
+
+
+- There are multiple valid partitions for this particular sequence :)) so the way we are finding 13 partitions must be changed if we wanna handle data like this but well we can be sure that this type of data will be very rare, why? think for yourself, it is rare indeed 
+
+
+- FootNote- here is a manually derived one to one mapping for the hypothesized emojis from emoji dataset (it's fun to look at but you can do this whole process without knowing this)
+
+🙼 = 284 
+😣 = 614
+🙯 = 262
+😑 = 1596
+😛 = 15436
+🛐 = 464
+🚼 = 422
+
+
+
